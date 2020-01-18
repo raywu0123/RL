@@ -3,30 +3,31 @@ import random
 import copy
 
 import torch
-from torch import nn
 import torch.nn.functional as F
 import torch.optim as optim
 
 from .utils import ReplayBuffer
 from .base import BaseAgent
 from .epsilon_schedulers import scheduler_hub
+from networks import network_hub
 
 
 class DQNAgent(BaseAgent):
 
     def __init__(
-            self,
-            network: nn.Module,
-            buffer_size: int = int(20000),
-            batch_size: int = 64,
-            gamma: float = 0.99,
-            lr: float = 1e-4,
-            train_freq: int = 4,
-            target_update_freq: int = 1000,
-            min_epsilon: float = 0.05,
-            epsilon_decay: float = 0.0005,
-            scheduler_id: str = 'linear',
-            **kwargs,
+        self,
+        state_size,
+        network_id: str,
+        buffer_size: int = int(20000),
+        batch_size: int = 64,
+        gamma: float = 0.99,
+        lr: float = 1e-4,
+        train_freq: int = 4,
+        target_update_freq: int = 1000,
+        min_epsilon: float = 0.05,
+        epsilon_decay: float = 0.0005,
+        scheduler_id: str = 'linear',
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -39,6 +40,7 @@ class DQNAgent(BaseAgent):
         )
 
         # Q-Network
+        network = network_hub[network_id](state_size, self.action_space)
         self.qnetwork_local = network.to(self.device)
         self.qnetwork_target = copy.deepcopy(self.qnetwork_local)
         self.optimizer = optim.RMSprop(self.qnetwork_local.parameters(), lr=lr)
