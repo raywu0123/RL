@@ -8,4 +8,8 @@ def get_parser():
     parser.add_argument('-ep', '--n_episode', type=int, default=1000, help='number of episodes')
     parser.add_argument('-le', '--log_episode', type=int, default=10)
     parser.add_argument('-r', '--render', action='store_true')
+    parser.add_argument('-bs', '--batch_size', type=int, default=64)
+    parser.add_argument('-lr', type=float, default=1e-3)
+    parser.add_argument('-nid', '--network_id', type=str)
+    parser.add_argument('-ipid', '--input_pipe_id', type=str, default='identity')
     return parser

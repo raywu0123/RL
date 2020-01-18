@@ -5,8 +5,11 @@ from gym import spaces
 
 class BaseAgent(ABC):
 
-    def __init__(self, state_size, action_space: spaces.Space, **kwargs):
-        self.state_size = state_size
+    def __init__(
+        self,
+        action_space: spaces.Space,
+        **kwargs,
+    ):
         self.action_space = action_space
 
     @abstractmethod

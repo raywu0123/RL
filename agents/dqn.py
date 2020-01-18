@@ -3,11 +3,11 @@ import random
 import copy
 
 import torch
+from torch import nn
 import torch.nn.functional as F
 import torch.optim as optim
 
 from .utils import ReplayBuffer
-from .networks import network_hub
 from .base import BaseAgent
 from .epsilon_schedulers import scheduler_hub
 
@@ -16,14 +16,15 @@ class DQNAgent(BaseAgent):
 
     def __init__(
             self,
+            network: nn.Module,
             buffer_size: int = int(20000),
             batch_size: int = 64,
             gamma: float = 0.99,
             lr: float = 1e-3,
             target_update_freq: int = 1,
             min_epsilon: float = 0.01,
-            epsilon_decay: float = 0.9999,
-            network_id: str = 'fc24',
+            epsilon_decay: float = 0.01,
+            scheduler_id: str = 'linear',
             **kwargs,
     ):
         super().__init__(**kwargs)
@@ -31,12 +32,12 @@ class DQNAgent(BaseAgent):
         self.batch_size = batch_size
         self.gamma = gamma
         self.target_update_freq = target_update_freq
-        self.epsilon_scheduler = scheduler_hub['linear'](1, 0.01, min_epsilon)
+        self.epsilon_scheduler = scheduler_hub[scheduler_id](
+            1, epsilon_decay, min_epsilon
+        )
 
         # Q-Network
-        self.qnetwork_local = network_hub[network_id](
-            self.state_size, self.action_space,
-        ).to(self.device)
+        self.qnetwork_local = network.to(self.device)
         self.qnetwork_target = copy.deepcopy(self.qnetwork_local)
         self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=lr)
 
@@ -45,22 +46,21 @@ class DQNAgent(BaseAgent):
         # Initialize time step (for updating every UPDATE_EVERY steps)
         self.t_step = 0
 
-    def end_timestep(self, state, next_state, action, done, info, reward):
+    def end_timestep(self, info, **kwargs):
         # Save experience in replay memory
-        self.memory.add(state, action, reward, next_state, done)
         self.t_step += 1
+        self.memory.add(**kwargs)
 
         if len(self.memory) > self.batch_size:
             experiences = self.memory.sample()
             states, actions, rewards, next_states, dones = experiences
-
             # Get max predicted Q values (for next states) from target model
-            Q_targets_next = self.qnetwork_target(next_states).detach().max(1)[0].unsqueeze(1)
+            Q_targets_next = self.qnetwork_target(next_states).detach().max(1)[0]
             # Compute Q targets for current states
             Q_targets = rewards + (self.gamma * Q_targets_next * (1 - dones))
 
             # Get expected Q values from local model
-            Q_expected = self.qnetwork_local(states).gather(1, actions)
+            Q_expected = self.qnetwork_local(states).gather(1, actions.view(-1, 1)).squeeze()
 
             # Compute loss
             loss = F.mse_loss(Q_expected, Q_targets)
@@ -75,15 +75,6 @@ class DQNAgent(BaseAgent):
 
     @staticmethod
     def soft_update(local_model, target_model):
-        """Soft update model parameters.
-        θ_target = τ*θ_local + (1 - τ)*θ_target
-
-        Params
-        ======
-            local_model (PyTorch model): weights will be copied from
-            target_model (PyTorch model): weights will be copied to
-            tau (float): interpolation parameter
-        """
         for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
             target_param.data.copy_(local_param.data)
 
@@ -91,13 +82,6 @@ class DQNAgent(BaseAgent):
         self.epsilon_scheduler.step()
 
     def get_action(self, state):
-        """Returns actions for given state as per current policy.
-
-        Params
-        ======
-            state (array_like): current state
-            eps (float): epsilon, for epsilon-greedy action selection
-        """
         state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
         self.qnetwork_local.eval()
         with torch.no_grad():
