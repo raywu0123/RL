@@ -17,7 +17,7 @@ class BaseAgent(ABC):
         pass
 
     @abstractmethod
-    def end_episode(self):
+    def end_episode(self) -> dict:
         pass
 
     def get_random_action(self):

@@ -20,10 +20,11 @@ class DQNAgent(BaseAgent):
             buffer_size: int = int(20000),
             batch_size: int = 64,
             gamma: float = 0.99,
-            lr: float = 1e-3,
-            target_update_freq: int = 1,
-            min_epsilon: float = 0.01,
-            epsilon_decay: float = 0.01,
+            lr: float = 1e-4,
+            train_freq: int = 4,
+            target_update_freq: int = 1000,
+            min_epsilon: float = 0.05,
+            epsilon_decay: float = 0.0005,
             scheduler_id: str = 'linear',
             **kwargs,
     ):
@@ -31,6 +32,7 @@ class DQNAgent(BaseAgent):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.batch_size = batch_size
         self.gamma = gamma
+        self.train_freq = train_freq
         self.target_update_freq = target_update_freq
         self.epsilon_scheduler = scheduler_hub[scheduler_id](
             1, epsilon_decay, min_epsilon
@@ -39,7 +41,7 @@ class DQNAgent(BaseAgent):
         # Q-Network
         self.qnetwork_local = network.to(self.device)
         self.qnetwork_target = copy.deepcopy(self.qnetwork_local)
-        self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=lr)
+        self.optimizer = optim.RMSprop(self.qnetwork_local.parameters(), lr=lr)
 
         # Replay memory
         self.memory = ReplayBuffer(buffer_size, batch_size, self.device)
@@ -51,7 +53,7 @@ class DQNAgent(BaseAgent):
         self.t_step += 1
         self.memory.add(**kwargs)
 
-        if len(self.memory) > self.batch_size:
+        if len(self.memory) > self.batch_size and self.t_step % self.train_freq == 0:
             experiences = self.memory.sample()
             states, actions, rewards, next_states, dones = experiences
             # Get max predicted Q values (for next states) from target model
@@ -80,6 +82,9 @@ class DQNAgent(BaseAgent):
 
     def end_episode(self):
         self.epsilon_scheduler.step()
+        return {
+            'epsilon': self.epsilon_scheduler.get_epsilon(),
+        }
 
     def get_action(self, state):
         state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
