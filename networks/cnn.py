@@ -9,18 +9,22 @@ class CNNNetwork(nn.Module):
         self.state_size = state_size
         input_chns = state_size[-1]
         self.convs = nn.Sequential(
-            nn.BatchNorm2d(num_features=input_chns),
+            nn.LayerNorm([input_chns, state_size[0], state_size[1]]),
 
             nn.Conv2d(input_chns, 32, kernel_size=8, stride=4),
-            nn.LeakyReLU(0.01),
+            nn.LeakyReLU(0.0),
             nn.BatchNorm2d(num_features=32),
 
             nn.Conv2d(32, 64, kernel_size=4, stride=2),
-            nn.LeakyReLU(0.01),
+            nn.LeakyReLU(0.0),
+            nn.BatchNorm2d(num_features=64),
+
+            nn.Conv2d(64, 64, kernel_size=3, stride=2),
+            nn.LeakyReLU(0.0),
             nn.BatchNorm2d(num_features=64),
 
             nn.Conv2d(64, 64, kernel_size=3, stride=1),
-            nn.LeakyReLU(0.01),
+            nn.LeakyReLU(0.0),
             nn.BatchNorm2d(num_features=64),
         )
         self.dense = nn.Sequential(

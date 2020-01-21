@@ -1,32 +1,32 @@
 import numpy as np
 import random
-import copy
 
 import torch
-from torch import nn
 import torch.nn.functional as F
 import torch.optim as optim
 
 from .utils import ReplayBuffer
 from .base import BaseAgent
 from .epsilon_schedulers import scheduler_hub
+from networks import network_hub
 
 
 class DQNAgent(BaseAgent):
 
     def __init__(
-            self,
-            network: nn.Module,
-            buffer_size: int = int(20000),
-            batch_size: int = 64,
-            gamma: float = 0.99,
-            lr: float = 1e-4,
-            train_freq: int = 4,
-            target_update_freq: int = 1000,
-            min_epsilon: float = 0.05,
-            epsilon_decay: float = 0.0005,
-            scheduler_id: str = 'linear',
-            **kwargs,
+        self,
+        state_size,
+        network_id: str,
+        buffer_size: int = int(1e4),
+        batch_size: int = 32,
+        gamma: float = 0.99,
+        lr: float = 1e-4,
+        train_freq: int = 4,
+        target_update_freq: int = 1,
+        min_epsilon: float = 0.05,
+        epsilon_decay: float = 2e-4,
+        scheduler_id: str = 'linear',
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -39,9 +39,10 @@ class DQNAgent(BaseAgent):
         )
 
         # Q-Network
-        self.qnetwork_local = network.to(self.device)
-        self.qnetwork_target = copy.deepcopy(self.qnetwork_local)
-        self.optimizer = optim.RMSprop(self.qnetwork_local.parameters(), lr=lr)
+        self.qnetwork_local = network_hub[network_id](state_size, self.action_space).to(self.device)
+        self.qnetwork_target = network_hub[network_id](state_size, self.action_space).to(self.device)
+        self.qnetwork_target.eval()
+        self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=lr)
 
         # Replay memory
         self.memory = ReplayBuffer(buffer_size, batch_size, self.device)
@@ -87,14 +88,13 @@ class DQNAgent(BaseAgent):
         }
 
     def get_action(self, state):
-        state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
-        self.qnetwork_local.eval()
-        with torch.no_grad():
-            action_values = self.qnetwork_local(state)
-        self.qnetwork_local.train()
-
         # Epsilon-greedy action selection
         if random.random() > self.epsilon_scheduler.get_epsilon():
+            state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
+            self.qnetwork_local.eval()
+            with torch.no_grad():
+                action_values = self.qnetwork_local(state)
+            self.qnetwork_local.train()
             return np.argmax(action_values.cpu().data.numpy())
         else:
             return self.get_random_action()

@@ -10,7 +10,6 @@ import json
 from parser import get_parser
 from agents import agent_hub
 from input_pipes import input_pipe_hub
-from networks import network_hub
 
 
 if __name__ == '__main__':
@@ -24,17 +23,17 @@ if __name__ == '__main__':
     print('Number of actions: ', env.action_space.n)
 
     input_pipe = input_pipe_hub[args.input_pipe_id](env.observation_space.shape)
-    network = network_hub[args.network_id](input_pipe.get_state_size(), env.action_space,)
 
     agent = agent_hub[args.agent](
+        state_size=input_pipe.get_state_size(),
+        network_id=args.network_id,
         action_space=env.action_space,
         batch_size=args.batch_size,
         lr=args.lr,
-        network=network,
     )
     if args.wandb:
         wandb.login(key=os.environ.get('WANDB_API_KEY'))
-        wandb.init(config=args)
+        wandb.init(config=args, project='RL')
 
     episode_rewards = []
     for i_episode in range(args.n_episode):
