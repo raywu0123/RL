@@ -9,9 +9,9 @@ class FCNetwork(nn.Module):
         self.norm = nn.LayerNorm(state_size[0])
         self.dense = nn.Sequential(
             nn.Linear(state_size[0], n_hidden),
-            nn.LeakyReLU(0.01),
+            nn.ReLU(),
             nn.Linear(n_hidden, n_hidden),
-            nn.LeakyReLU(0.01),
+            nn.ReLU(),
             nn.Linear(n_hidden, action_space.n),
         )
 

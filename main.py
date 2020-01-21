@@ -33,7 +33,7 @@ if __name__ == '__main__':
     )
     if args.wandb:
         wandb.login(key=os.environ.get('WANDB_API_KEY'))
-        wandb.init(config=args)
+        wandb.init(config=args, project='RL')
 
     episode_rewards = []
     for i_episode in range(args.n_episode):

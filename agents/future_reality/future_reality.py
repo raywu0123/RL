@@ -51,8 +51,8 @@ class FutureRealityAgent(BaseAgent):
         # self.opt_future_reward = optim.RMSprop(self.future_network.parameters(), lr=self.lr)
         # self.keypoint_network = KeypointNetwork()
         # self.opt_keypoint = optim.RMSprop(self.future_network.parameters(), lr=self.lr)
-        self.state_encoder = StateEncoder(state_size)
-        self.state_decoder = StateDecoder(state_size)
+        self.state_encoder = StateEncoder(state_size).to(self.device)
+        self.state_decoder = StateDecoder(state_size).to(self.device)
         self.opt_ae = optim.RMSprop(
             list(self.state_encoder.parameters()) + list(self.state_decoder.parameters()),
             lr=self.lr,
