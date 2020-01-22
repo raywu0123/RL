@@ -16,7 +16,8 @@ from .clip_reward import ClipRewardWrapper
 class AtariWrapper(gym.Wrapper):
 
     def __init__(self, env):
-        assert 'NoFrameskip' in env.spec.id
+        if env.spec is not None:
+            assert 'NoFrameskip' in env.spec.id
         env = NoopResetWrapper(env, noop_max=30)
         env = MaxAndSkipWrapper(env, skip=4)
         super().__init__(env)
@@ -24,13 +25,14 @@ class AtariWrapper(gym.Wrapper):
 
 class AtariDeepMindWrapper(gym.Wrapper):
 
-    def __init__(self, env):
+    def __init__(self, env, is_train: bool):
         env = AtariWrapper(env)
         env = EpisodicLifeWrapper(env)
         if 'FIRE' in env.unwrapped.get_action_meanings():
             env = FireResetWrapper(env)
         env = WarpFrameWrapper(env)
-        env = ScaledFloatFrame(env)
+        if is_train:
+            env = ScaledFloatFrame(env)
         env = ClipRewardWrapper(env)
         env = StackFrameWrapper(env, 4)
         super().__init__(env)

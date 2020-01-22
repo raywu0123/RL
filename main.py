@@ -1,3 +1,5 @@
+import copy
+
 import gym
 import numpy as np
 from dotenv import load_dotenv
@@ -8,7 +10,8 @@ import torch
 
 from parser import get_parser
 from agents import agent_hub
-from env_wrappers import env_wrapper_hub
+from env_wrappers import EnvWrapperHub
+from evaluation import evaluate_agent
 
 
 if __name__ == '__main__':
@@ -17,16 +20,16 @@ if __name__ == '__main__':
 
     env = gym.make(args.env)
     env.seed(0)
-
     print('Original state shape: ', env.observation_space.shape)
     print('Original number of actions: ', env.action_space.n)
-
-    # input_pipe = input_pipe_hub[args.input_pipe_id](env.observation_space.shape)
-    env_wrapper = env_wrapper_hub[args.env_wrapper_id]
+    env_wrapper = EnvWrapperHub.get_wrapper(args.env_wrapper_id, is_train=True)
     env = env_wrapper(env)
-
     print('Wrapped state shape: ', env.observation_space.shape)
     print('Wrapped number of actions: ', env.action_space.n)
+
+    eval_env = copy.deepcopy(env)
+    eval_env_wrapper = EnvWrapperHub.get_wrapper(args.env_wrapper_id, is_train=False)
+    eval_env = eval_env_wrapper(eval_env)
 
     agent = agent_hub[args.agent](
         state_size=env.observation_space.shape,
@@ -73,7 +76,18 @@ if __name__ == '__main__':
         }
         if args.wandb:
             wandb.log(all_logs, step=i_episode)
-        if i_episode % args.log_episode == 0:
+        if i_episode % args.log_freq == 0:
             print(f'episode: {i_episode}, {json.dumps(all_logs)}')
 
+        if i_episode % args.evaluate_freq == 0:
+            evaluation_result = evaluate_agent(
+                agent,
+                eval_env,
+                n_episodes=args.evaluate_episodes,
+            )
+            print(f'{json.dumps(evaluation_result)}')
+            if args.wandb:
+                wandb.log(evaluation_result, step=i_episode)
+
     env.close()
+    eval_env.close()

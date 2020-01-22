@@ -54,6 +54,7 @@ class DQNAgent(BaseAgent):
         self.memory = ReplayBuffer(buffer_size, batch_size, self.device)
         # Initialize time step (for updating every UPDATE_EVERY steps)
         self.t_step = 0
+        self.is_eval = False
 
     def end_timestep(self, info, **kwargs):
         # Save experience in replay memory
@@ -95,7 +96,8 @@ class DQNAgent(BaseAgent):
 
     def get_action(self, state):
         # Epsilon-greedy action selection
-        if random.random() > self.epsilon_scheduler.get_epsilon():
+        epsilon = self.epsilon_scheduler.get_epsilon() if self.is_eval else 0.01
+        if random.random() > epsilon:
             state = state.unsqueeze(0).to(self.device)
             self.qnetwork_local.eval()
             with torch.no_grad():
@@ -104,3 +106,14 @@ class DQNAgent(BaseAgent):
             return np.argmax(action_values.cpu().data.numpy())
         else:
             return self.get_random_action()
+
+    def load(self, checkpoint_dir):
+        pass
+
+    def eval(self):
+        self.is_eval = True
+        self.qnetwork_local.eval()
+
+    def train(self):
+        self.is_eval = False
+        self.qnetwork_local.train()

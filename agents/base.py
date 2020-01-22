@@ -13,7 +13,7 @@ class BaseAgent(ABC):
         self.action_space = action_space
 
     @abstractmethod
-    def end_timestep(self, state, next_state, action, done, info, reward):
+    def end_timestep(self, info, **kwargs):
         pass
 
     @abstractmethod
@@ -25,4 +25,16 @@ class BaseAgent(ABC):
 
     @abstractmethod
     def get_action(self, state):
+        pass
+
+    @abstractmethod
+    def load(self, checkpoint_dir):
+        pass
+
+    @abstractmethod
+    def eval(self):
+        pass
+
+    @abstractmethod
+    def train(self):
         pass
