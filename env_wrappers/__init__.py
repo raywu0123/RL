@@ -1,6 +1,7 @@
-from .atari_wrapper import make_wrap_atari
+from .atari import AtariDeepMindWrapper
+
 
 env_wrapper_hub = {
-    'atari': make_wrap_atari,
+    'atari_deepmind': AtariDeepMindWrapper,
     'identity': lambda x: x,
 }
