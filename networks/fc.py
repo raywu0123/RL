@@ -6,7 +6,6 @@ class FCNetwork(nn.Module):
     def __init__(self, state_size, action_space, n_hidden):
         super().__init__()
         self.state_size = state_size
-        self.norm = nn.LayerNorm(state_size[0])
         self.dense = nn.Sequential(
             nn.Linear(state_size[0], n_hidden),
             nn.ReLU(),
@@ -16,4 +15,4 @@ class FCNetwork(nn.Module):
         )
 
     def forward(self, state):
-        return self.dense(self.norm(state))
+        return self.dense(state)

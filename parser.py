@@ -11,6 +11,6 @@ def get_parser():
     parser.add_argument('-bs', '--batch_size', type=int, default=64)
     parser.add_argument('-lr', type=float, default=1e-3)
     parser.add_argument('-nid', '--network_id', type=str)
-    parser.add_argument('-ipid', '--input_pipe_id', type=str, default='identity')
+    parser.add_argument('-ewid', '--env_wrapper_id', type=str, default='identity')
     parser.add_argument('--wandb', action='store_true')
     return parser

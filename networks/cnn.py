@@ -9,29 +9,15 @@ class CNNNetwork(nn.Module):
         self.state_size = state_size
         input_chns = state_size[-1]
         self.convs = nn.Sequential(
-            nn.LayerNorm([input_chns, state_size[0], state_size[1]]),
-
-            nn.Conv2d(input_chns, 32, kernel_size=8, stride=4),
-            nn.LeakyReLU(0.0),
-            nn.BatchNorm2d(num_features=32),
-
-            nn.Conv2d(32, 64, kernel_size=4, stride=2),
-            nn.LeakyReLU(0.0),
-            nn.BatchNorm2d(num_features=64),
-
-            nn.Conv2d(64, 64, kernel_size=3, stride=2),
-            nn.LeakyReLU(0.0),
-            nn.BatchNorm2d(num_features=64),
-
-            nn.Conv2d(64, 64, kernel_size=3, stride=1),
-            nn.LeakyReLU(0.0),
-            nn.BatchNorm2d(num_features=64),
+            nn.Conv2d(input_chns, 16, kernel_size=8, stride=4),
+            nn.ReLU(),
+            nn.Conv2d(16, 32, kernel_size=4, stride=2),
+            nn.ReLU(),
         )
         self.dense = nn.Sequential(
-            nn.Linear(self.get_dense_input_dim(state_size, self.convs), 512),
-            nn.LeakyReLU(0.01),
-            nn.BatchNorm1d(num_features=512),
-            nn.Linear(512, action_space.n),
+            nn.Linear(self.get_dense_input_dim(state_size, self.convs), 256),
+            nn.ReLU(),
+            nn.Linear(256, action_space.n),
         )
 
     @staticmethod
@@ -43,6 +29,7 @@ class CNNNetwork(nn.Module):
     def forward(self, state: torch.Tensor):
         if not state.ndim == 4:
             raise ValueError(f'Invalid shape, got {state.shape}')
+        state = state.permute([0, 3, 1, 2])
         x = self.convs(state)   # (N, C, H, W)
         x = x.view(x.shape[0], -1)
         x = self.dense(x)

@@ -17,14 +17,14 @@ class DQNAgent(BaseAgent):
         self,
         state_size,
         network_id: str,
-        buffer_size: int = int(1e4),
+        buffer_size: int = int(1e6),
         batch_size: int = 32,
         gamma: float = 0.99,
         lr: float = 1e-4,
         train_freq: int = 4,
-        target_update_freq: int = 1,
-        min_epsilon: float = 0.05,
-        epsilon_decay: float = 2e-4,
+        target_update_freq: int = 1000,
+        min_epsilon: float = 0.1,
+        epsilon_decay: float = 1e-6,
         scheduler_id: str = 'linear',
         **kwargs,
     ):
@@ -39,8 +39,14 @@ class DQNAgent(BaseAgent):
         )
 
         # Q-Network
-        self.qnetwork_local = network_hub[network_id](state_size, self.action_space).to(self.device)
-        self.qnetwork_target = network_hub[network_id](state_size, self.action_space).to(self.device)
+        self.qnetwork_local = network_hub[network_id](
+            state_size,
+            self.action_space,
+        ).to(self.device)
+        self.qnetwork_target = network_hub[network_id](
+            state_size,
+            self.action_space,
+        ).to(self.device)
         self.qnetwork_target.eval()
         self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=lr)
 
@@ -53,6 +59,7 @@ class DQNAgent(BaseAgent):
         # Save experience in replay memory
         self.t_step += 1
         self.memory.add(**kwargs)
+        self.epsilon_scheduler.step()
 
         if len(self.memory) > self.batch_size and self.t_step % self.train_freq == 0:
             experiences = self.memory.sample()
@@ -82,7 +89,6 @@ class DQNAgent(BaseAgent):
             target_param.data.copy_(local_param.data)
 
     def end_episode(self):
-        self.epsilon_scheduler.step()
         return {
             'epsilon': self.epsilon_scheduler.get_epsilon(),
         }
@@ -90,7 +96,7 @@ class DQNAgent(BaseAgent):
     def get_action(self, state):
         # Epsilon-greedy action selection
         if random.random() > self.epsilon_scheduler.get_epsilon():
-            state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
+            state = state.unsqueeze(0).to(self.device)
             self.qnetwork_local.eval()
             with torch.no_grad():
                 action_values = self.qnetwork_local(state)

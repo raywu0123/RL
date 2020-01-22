@@ -143,5 +143,3 @@ class FutureRealityAgent(BaseAgent):
         #     return np.argmax(p_action.cpu().data.numpy())
         # else:
         return self.get_random_action()
-
-
