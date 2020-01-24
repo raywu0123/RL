@@ -11,7 +11,6 @@ import torch
 from parser import get_parser
 from agents import agent_hub
 from env_wrappers import EnvWrapperHub
-from evaluation import evaluate_agent
 
 
 if __name__ == '__main__':
@@ -78,16 +77,6 @@ if __name__ == '__main__':
             wandb.log(all_logs, step=i_episode)
         if i_episode % args.log_freq == 0:
             print(f'episode: {i_episode}, {json.dumps(all_logs)}')
-
-        if i_episode % args.evaluate_freq == 0:
-            evaluation_result = evaluate_agent(
-                agent,
-                eval_env,
-                n_episodes=args.evaluate_episodes,
-            )
-            print(f'{json.dumps(evaluation_result)}')
-            if args.wandb:
-                wandb.log(evaluation_result, step=i_episode)
 
     env.close()
     eval_env.close()

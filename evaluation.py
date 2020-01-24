@@ -1,31 +1,105 @@
-import gym
 import numpy as np
 import torch
 
-from agents import BaseAgent
+from utils.memory import ReplayMemory
+from torchcule.atari import Env as AtariEnv
 
 
-def evaluate_agent(agent: BaseAgent, env: gym.Env, n_episodes: int = 100) -> dict:
-    agent.eval()
-    episode_rewards = []
-    for i_episode in range(n_episodes):
-        state = torch.from_numpy(env.reset()).float()
-        t = 0
-        done = False
-        rewards = []
-        while not done:
-            action = agent.get_action(state)
-            next_state, reward, done, info = env.step(action)
-            next_state = torch.from_numpy(next_state).float()
-            rewards.append(reward)
-            state = next_state
-            t += 1
+def test(args, dqn, env, device):
+    if args.use_openai:
+        observation = torch.from_numpy(env.reset()).squeeze(1)
+    else:
+        observation = env.reset(initial_steps=10).clone().squeeze(-1)
 
-        episode_reward = np.sum(rewards)
-        episode_rewards.append(episode_reward)
-        _ = agent.end_episode()
+    num_ales = args.evaluate_episodes
 
-    agent.train()
-    return {
-        'eval_mean_reward': np.mean(episode_rewards)
-    }
+    # Test performance over several episodes
+    state = torch.zeros((num_ales, args.history_length, 84, 84), dtype=torch.float32, device=device)
+    state[:, -1] = observation.float().div_(255.0)
+
+    # These variables are used to compute average rewards for all processes.
+    lengths = torch.zeros(num_ales, dtype=torch.float32)
+    rewards = torch.zeros(num_ales, dtype=torch.float32)
+    not_done = torch.ones(num_ales, dtype=torch.float32)
+    all_done = torch.zeros(num_ales, dtype=torch.bool)
+
+    fire_reset = torch.zeros(num_ales, dtype=torch.bool)
+    actions = torch.ones(num_ales, dtype=torch.uint8)
+
+    maybe_npy = lambda a: a.numpy() if args.use_openai else a
+
+    info = env.step(maybe_npy(actions))[-1]
+    if args.use_openai:
+        lives = torch.IntTensor([d['ale.lives'] for d in info])
+    else:
+        lives = info['ale.lives'].clone()
+
+    while not all_done.all():
+        actions = dqn.act(state).cpu()  # Choose an action ε-greedily
+        actions[fire_reset] = 1
+        observation, reward, done, info = env.step(maybe_npy(actions))  # Step
+
+        if args.use_openai:
+            # convert back to pytorch tensors
+            observation = torch.from_numpy(observation)
+            reward = torch.from_numpy(reward)
+            done = torch.from_numpy(done.astype(np.uint8))
+            observation = observation.squeeze(1)
+        else:
+            observation = observation.clone().squeeze(-1)
+
+        if args.use_openai:
+            new_lives = torch.IntTensor([d['ale.lives'] for d in info])
+        else:
+            new_lives = info['ale.lives'].clone()
+
+        done = done.bool()
+        fire_reset = new_lives < lives
+        lives.copy_(new_lives)
+
+        state[:, :-1].copy_(state[:, 1:].clone())
+        state *= not_done.to(device=device).view(-1, 1, 1, 1)
+        state[:, -1].copy_(observation.to(device=device, dtype=torch.float32).div(255.0))
+
+        # update episodic reward counters
+        lengths += not_done
+        rewards += reward.float() * not_done
+
+        all_done |= done
+        all_done |= (lengths >= args.max_episode_length)
+        not_done = (~all_done).float()
+
+    # Return average reward and Q-value
+    return rewards, lengths
+
+
+def initialize_validation(args, device):
+    val_mem = ReplayMemory(args, args.evaluation_size, device=device, num_ales=1)
+
+    val_env = AtariEnv(
+        args.env,
+        1,
+        color_mode='gray',
+        device='cpu',
+        rescale=True,
+        clip_rewards=args.reward_clip,
+        episodic_life=True,
+        repeat_prob=0.0,
+    )
+    val_env.train()
+
+    observation = val_env.reset(initial_steps=100, verbose=False).clone().to(
+        device=device,
+        dtype=torch.float32,
+    ).squeeze(-1).div_(255.0)
+    val_mem.reset(observation)
+
+    for _ in range(val_mem.capacity):
+        observation, _, done, info = val_env.step(val_env.sample_random_actions())
+        observation = observation.clone().to(
+            device=device, dtype=torch.float32
+        ).squeeze(-1).div_(255.0)
+        done = done.to(device=device)
+        val_mem.append(observation, None, None, done)
+
+    return val_mem

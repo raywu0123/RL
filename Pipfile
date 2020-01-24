@@ -6,6 +6,7 @@ name = "pypi"
 [packages]
 gym = "*"
 "flake8" = "*"
+torch = "==1.2.0"
 
 [dev-packages]
 

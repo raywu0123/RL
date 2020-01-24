@@ -13,7 +13,7 @@ class BaseAgent(ABC):
         self.action_space = action_space
 
     @abstractmethod
-    def end_timestep(self, info, **kwargs):
+    def learn(self, states, actions, rewards, next_states, dones):
         pass
 
     @abstractmethod
@@ -24,7 +24,7 @@ class BaseAgent(ABC):
         return self.action_space.sample()
 
     @abstractmethod
-    def get_action(self, state):
+    def act(self, state):
         pass
 
     @abstractmethod
