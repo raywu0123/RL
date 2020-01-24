@@ -15,9 +15,7 @@ exclude =
     # old api
     api/
     # __init__s usually have pre-imported modules
-    model/**/__init__.py
-    data/**/__init__.py
-    optimizers/__init__.py
-    optimizers/radam.py
+    **/__init__.py
+
 max_complexity = 10
 statistics = true

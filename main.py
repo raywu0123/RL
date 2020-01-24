@@ -1,4 +1,4 @@
-import os
+import copy
 
 import gym
 import numpy as np
@@ -6,10 +6,12 @@ from dotenv import load_dotenv
 load_dotenv('.env')
 import wandb
 import json
+import torch
 
 from parser import get_parser
 from agents import agent_hub
-from input_pipes import input_pipe_hub
+from env_wrappers import EnvWrapperHub
+from evaluation import evaluate_agent
 
 
 if __name__ == '__main__':
@@ -18,28 +20,30 @@ if __name__ == '__main__':
 
     env = gym.make(args.env)
     env.seed(0)
+    print('Original state shape: ', env.observation_space.shape)
+    print('Original number of actions: ', env.action_space.n)
+    env_wrapper = EnvWrapperHub.get_wrapper(args.env_wrapper_id, is_train=True)
+    env = env_wrapper(env)
+    print('Wrapped state shape: ', env.observation_space.shape)
+    print('Wrapped number of actions: ', env.action_space.n)
 
-    print('State shape: ', env.observation_space.shape)
-    print('Number of actions: ', env.action_space.n)
-
-    input_pipe = input_pipe_hub[args.input_pipe_id](env.observation_space.shape)
+    eval_env = copy.deepcopy(env)
+    eval_env_wrapper = EnvWrapperHub.get_wrapper(args.env_wrapper_id, is_train=False)
+    eval_env = eval_env_wrapper(eval_env)
 
     agent = agent_hub[args.agent](
-        state_size=input_pipe.get_state_size(),
+        state_size=env.observation_space.shape,
         network_id=args.network_id,
         action_space=env.action_space,
         batch_size=args.batch_size,
         lr=args.lr,
     )
     if args.wandb:
-        wandb.login(key=os.environ.get('WANDB_API_KEY'))
         wandb.init(config=args, project='RL')
 
     episode_rewards = []
     for i_episode in range(args.n_episode):
-        state = env.reset()
-        state = input_pipe(state)
-
+        state = torch.from_numpy(env.reset()).float()
         t = 0
         done = False
         rewards = []
@@ -49,7 +53,7 @@ if __name__ == '__main__':
 
             action = agent.get_action(state)
             next_state, reward, done, info = env.step(action)
-            next_state = input_pipe(next_state)
+            next_state = torch.from_numpy(next_state).float()
             rewards.append(reward)
             agent.end_timestep(
                 info,
@@ -72,8 +76,18 @@ if __name__ == '__main__':
         }
         if args.wandb:
             wandb.log(all_logs, step=i_episode)
-        if i_episode % args.log_episode == 0:
+        if i_episode % args.log_freq == 0:
             print(f'episode: {i_episode}, {json.dumps(all_logs)}')
 
-        input_pipe.reset()
+        if i_episode % args.evaluate_freq == 0:
+            evaluation_result = evaluate_agent(
+                agent,
+                eval_env,
+                n_episodes=args.evaluate_episodes,
+            )
+            print(f'{json.dumps(evaluation_result)}')
+            if args.wandb:
+                wandb.log(evaluation_result, step=i_episode)
+
     env.close()
+    eval_env.close()
