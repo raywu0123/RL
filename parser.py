@@ -15,4 +15,8 @@ def get_parser():
     parser.add_argument('-nid', '--network_id', type=str)
     parser.add_argument('-ewid', '--env_wrapper_id', type=str, default='identity')
     parser.add_argument('--wandb', action='store_true')
+
+    parser.add_argument('--corpus_name', type=str, default='news')
+    parser.add_argument('--vocab_size', type=int, default=5000)
+    parser.add_argument('--maxlen', type=int, default=50)
     return parser

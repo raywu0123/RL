@@ -1,6 +1,5 @@
 import copy
 
-import gym
 import numpy as np
 from dotenv import load_dotenv
 load_dotenv('.env')
@@ -12,13 +11,14 @@ from parser import get_parser
 from agents import agent_hub
 from env_wrappers import EnvWrapperHub
 from evaluation import evaluate_agent
+from custom_envs import EnvironmentFactory
 
 
 if __name__ == '__main__':
     parser = get_parser()
     args = parser.parse_args()
 
-    env = gym.make(args.env)
+    env = EnvironmentFactory.make(key=args.env, args=args)
     env.seed(0)
     print('Original state shape: ', env.observation_space.shape)
     print('Original number of actions: ', env.action_space.n)
